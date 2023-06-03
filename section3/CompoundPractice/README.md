@@ -40,3 +40,21 @@ To get started with the Compound Practice repository, follow the steps below:
    ```
 
 Feel free to explore the code and dive into the exercises provided to enhance your understanding of Compound Finance. Happy practicing!
+
+## Script setup
+
+1. Create `.env` in the root directory:
+
+2. Add the following to the `.env` file:
+
+```shell
+SEPOLIA_RPC_URL=https://rpc.sepolia.org
+ETHERSCAN_API_KEY=YOUR_API_KEY
+PRIVATE_KEY=YOUR_PRIVATE_KEY
+```
+
+3. Run the depoly script:
+
+```shell
+forge script script/Compound.s.sol:CompoundScript --broadcast --verify --rpc-url sepolia
+```
