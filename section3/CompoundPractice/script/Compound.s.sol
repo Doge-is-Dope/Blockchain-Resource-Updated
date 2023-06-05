@@ -21,6 +21,21 @@ contract CompoundScript is Script {
 
     function setUp() public {}
 
+    function deployUnitroller() public {
+        // Deploy Unitroller
+        Unitroller unitroller = new Unitroller();
+
+        // Deploy Comptroller
+        Comptroller comptroller = new Comptroller();
+
+        // Set Comptroller as implementation of Unitroller
+        unitroller._setPendingImplementation(address(comptroller));
+
+        SimplePriceOracle oracle = new SimplePriceOracle();
+        comptroller._setPriceOracle(oracle);
+        comptroller._become(unitroller);
+    }
+
     function run() public {
         address deployer = vm.rememberKey(vm.envUint("PRIVATE_KEY"));
         vm.startBroadcast(deployer);
@@ -53,6 +68,9 @@ contract CompoundScript is Script {
             address(delegate),           // The address of the implementation the contract delegates to
             new bytes(0)                 // The encoded args for becomeImplementation
         );
+
+        deployUnitroller();
+
         vm.stopBroadcast();
     }
 }
