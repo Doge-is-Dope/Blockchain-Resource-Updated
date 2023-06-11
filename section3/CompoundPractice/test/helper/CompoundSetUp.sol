@@ -25,18 +25,18 @@ contract CompoundSetUp is Test {
 
     Comptroller public comptrollerProxy;
 
-    ERC20 public token1;
-    ERC20 public token2;
+    ERC20 public tokenA;
+    ERC20 public tokenB;
 
-    CErc20Delegator public cToken1;
-    CErc20Delegator public cToken2;
+    CErc20Delegator public cTokenA;
+    CErc20Delegator public cTokenB;
 
     function setUp() public virtual {
         admin = makeAddr("Admin");
 
         // Deply underlying tokens
-        token1 = new ERC20("Token 1", "T1");
-        token2 = new ERC20("Token 2", "T2");
+        tokenA = new ERC20("Token A", "TA");
+        tokenB = new ERC20("Token B", "TB");
 
         // Deploy Comptroller implementation
         Comptroller comptroller = new Comptroller();
@@ -62,26 +62,26 @@ contract CompoundSetUp is Test {
         // Deplot CErc20Delegate
         CErc20Delegate delegate = new CErc20Delegate();
 
-        cToken1 = new CErc20Delegator(
-            address(token1),
+        cTokenA = new CErc20Delegator(
+            address(tokenA),
             comptrollerProxy,
             interestRateModel,
             initialExchangeRateMantissa,
-            "Compound Token 1",
-            "cT1",
+            "Compound Token A",
+            "cTA",
             18,
             payable(admin),
             address(delegate),
             new bytes(0)
         );
 
-        cToken2 = new CErc20Delegator(
-            address(token2),
+        cTokenB = new CErc20Delegator(
+            address(tokenB),
             comptrollerProxy,
             interestRateModel,
             initialExchangeRateMantissa,
-            "Compound Token 2",
-            "cT2",
+            "Compound Token B",
+            "cTB",
             18,
             payable(admin),
             address(delegate),
@@ -89,15 +89,20 @@ contract CompoundSetUp is Test {
         );
 
         // Set support market
-        comptrollerProxy._supportMarket(CToken(address(cToken1)));
+        comptrollerProxy._supportMarket(CToken(address(cTokenA)));
+        comptrollerProxy._supportMarket(CToken(address(cTokenB)));
         // Set underlying price
-        oracle.setUnderlyingPrice(CToken(address(cToken1)), 1);
+        oracle.setUnderlyingPrice(CToken(address(cTokenA)), 1);
+        oracle.setUnderlyingPrice(CToken(address(cTokenB)), 100);
+
+        // Set collateral factor for token B
+        comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 0.5e18);
 
         vm.label(address(comptroller), "comptroller");
         vm.label(address(unitroller), "unitroller");
-        vm.label(address(token1), "token1");
-        vm.label(address(token2), "token2");
-        vm.label(address(cToken1), "cToken1");
-        vm.label(address(cToken2), "cToken2");
+        vm.label(address(tokenA), "tokenA");
+        vm.label(address(tokenB), "tokenB");
+        vm.label(address(cTokenA), "cTokenA");
+        vm.label(address(cTokenB), "cTokenB");
     }
 }
