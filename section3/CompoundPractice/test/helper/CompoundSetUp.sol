@@ -24,6 +24,7 @@ contract CompoundSetUp is Test {
     uint256 public initialExchangeRateMantissa = 1e18;
 
     Comptroller public comptrollerProxy;
+    SimplePriceOracle public priceOracle;
 
     ERC20 public tokenA;
     ERC20 public tokenB;
@@ -47,10 +48,11 @@ contract CompoundSetUp is Test {
         // Deploy comptroller proxy
         comptrollerProxy = Comptroller(address(unitroller));
 
-        SimplePriceOracle oracle = new SimplePriceOracle();
+        // Deploy price oracle
+        priceOracle = new SimplePriceOracle();
 
         // Set oracle
-        comptrollerProxy._setPriceOracle(oracle);
+        comptrollerProxy._setPriceOracle(priceOracle);
         // Set close factor
         comptrollerProxy._setCloseFactor(closeFactorMantissa);
         // Set liquidation incentive
@@ -92,8 +94,8 @@ contract CompoundSetUp is Test {
         comptrollerProxy._supportMarket(CToken(address(cTokenA)));
         comptrollerProxy._supportMarket(CToken(address(cTokenB)));
         // Set underlying price
-        oracle.setUnderlyingPrice(CToken(address(cTokenA)), 1);
-        oracle.setUnderlyingPrice(CToken(address(cTokenB)), 100);
+        priceOracle.setUnderlyingPrice(CToken(address(cTokenA)), 1e18);
+        priceOracle.setUnderlyingPrice(CToken(address(cTokenB)), 100e18);
 
         // Set collateral factor for token B
         comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 0.5e18);
