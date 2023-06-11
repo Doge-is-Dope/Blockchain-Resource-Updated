@@ -113,7 +113,7 @@ contract CompoundTest is CompoundSetUp {
         vm.stopPrank();
     }
 
-    function test_liquidation() public {
+    function test_liquidation_collectoral_factor() public {
         _supplyTokenA(); // Admin supplies 500 tokenA
 
         vm.startPrank(_user1);
@@ -134,10 +134,13 @@ contract CompoundTest is CompoundSetUp {
         assertEq(tokenA.balanceOf(_user1), _initialBalance + borrowedAmount); // 500 + 50 = 550
         vm.stopPrank();
 
+        // ====================================================
         // Modify the colleceral factor of cTokenB to 30%.
         comptrollerProxy._setCollateralFactor(CToken(address(cTokenB)), 0.3e18);
+        // ====================================================
+        // User1 now has short fall.
         (,, uint256 _shortfallBeforeLiquidate) = comptrollerProxy.getAccountLiquidity(_user1);
-        assertEq(_shortfallBeforeLiquidate, 20); // 50 - 100 * 30% = -20
+        assertEq(_shortfallBeforeLiquidate, 20e18); // 50 - 100 * 30% = -20
 
         vm.startPrank(_user2);
         // Get the borrowed amount of user1.
@@ -165,16 +168,68 @@ contract CompoundTest is CompoundSetUp {
         // Check the tokenA balance of user2.
         assertEq(tokenA.balanceOf(_user2), 475e18); // _initialBalance - liauidatedAmount
 
-        // The cTokenB balance of user2.
-        // 2.8% is added to the cToken’s reserves.
-        assertEq(cTokenB.balanceOf(_user2), 24.3e16); // 25 * (100% - 2.8%) / 100 = 0.243
-
         // First of all, the liquidate incentive is deducted by 25 * 1.08 = 27
         // so user1's tokenB value is now $100 - $27 = $73
-        // Since the collectoral factor of cTokenB is 30%, it's acually $73 * 30% = $21.9 ~= $22
-        // The shortfall of user1 is borrowed amount - actual balance: $25 - $22 = $3
+        // Since the collectoral factor of cTokenB is 30%, it's acually $73 * 30% = $21.9
+        // The shortfall of user1 is borrowed amount - actual balance: $25 - $21.9 = $3.1
         (,, uint256 _shortfallAfterLiquidate) = comptrollerProxy.getAccountLiquidity(_user1);
-        assertEq(_shortfallAfterLiquidate, 3); // 25 - 100 * 30% = 3
+        assertEq(_shortfallAfterLiquidate, 3.1e18);
+        vm.stopPrank();
+    }
+
+    function test_liquidation_price_drop() public {
+        _supplyTokenA(); // Admin supplies 500 tokenA
+
+        vm.startPrank(_user1);
+        tokenB.approve(address(cTokenB), _MAX_UINT);
+
+        // Mint 1 cTokenB.
+        uint256 mintedAmount = 1 * 10 ** cTokenB.decimals();
+        assertEq(cTokenB.mint(mintedAmount), 0); // success
+
+        // Make cTokenB as collateral.
+        address[] memory cTokens = new address[](1);
+        cTokens[0] = address(cTokenB);
+        comptrollerProxy.enterMarkets(cTokens);
+
+        // Borrow 50 tokenA.
+        uint256 borrowedAmount = 50 * 10 ** cTokenA.decimals();
+        assertEq(cTokenA.borrow(borrowedAmount), 0); // success
+        assertEq(tokenA.balanceOf(_user1), _initialBalance + borrowedAmount); // 500 + 50 = 550
+        vm.stopPrank();
+
+        // ====================================================
+        // Modify the price of tokenB from 100 to 60.
+        priceOracle.setUnderlyingPrice(CToken(address(cTokenB)), 60e18);
+        // ====================================================
+
+        // User1 now has short fall.
+        (,, uint256 _shortfallBeforeLiquidate) = comptrollerProxy.getAccountLiquidity(_user1);
+        assertEq(_shortfallBeforeLiquidate, 20e18); // 60 * 50% - 50 = -20
+
+        vm.startPrank(_user2);
+
+        // Get the borrowed amount of user1.
+        uint256 user1BorrowedTokenA = cTokenA.borrowBalanceStored(_user1);
+        assertEq(user1BorrowedTokenA, 50 * 10 ** tokenA.decimals()); // 50
+
+        // Get the close factor.
+        uint256 closeFactorMinMantissa = comptrollerProxy.closeFactorMantissa();
+        assertEq(closeFactorMinMantissa, 0.5e18); // 50%
+
+        uint256 liauidatedAmount = user1BorrowedTokenA * closeFactorMinMantissa / 1e18;
+        assertEq(liauidatedAmount, 25 * 10 ** tokenA.decimals()); // 25
+
+        // Liquidate 25 tokenA of user1 by user2.
+        tokenA.approve(address(cTokenA), liauidatedAmount);
+        assertEq(cTokenA.liquidateBorrow(_user1, liauidatedAmount, cTokenB), 0); // success
+
+        // After liquidation, the debt of user1 is 25 tokenA equals to $25.
+        // Since the liquidation incentive is 8%, user1's collectoral (tokenB) is now: $60 - $25 * 1.08  = $33
+        // The actual amount that user1 can borrow is $33 * 50% = $16.5
+        // So the shortfall of user1 is $25 - $16.5 = $8.5
+        (,, uint256 _shortfallAfterLiquidate) = comptrollerProxy.getAccountLiquidity(_user1);
+        assertEq(_shortfallAfterLiquidate, 8.5e18);
         vm.stopPrank();
     }
 }
