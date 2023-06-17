@@ -67,13 +67,13 @@ contract FlashloanLiquidateTest is FlashloanLiquidateSetUp {
         assertEq(closeFactorMinMantissa, 0.5e18); // 50%
 
         // Calculate the amount can be liquidated
-        uint256 liauidatedAmount = user1BorrowedUSDC * closeFactorMinMantissa / 1e18;
-        assertEq(liauidatedAmount, 1250 * 10 ** USDC.decimals()); // 1250 USDC
+        uint256 liquidatedAmount = user1BorrowedUSDC * closeFactorMinMantissa / 1e18;
+        assertEq(liquidatedAmount, 1250 * 10 ** USDC.decimals()); // 1250 USDC
 
         // Set up callback data for liquidation in flashloan
         bytes memory callbackData = abi.encode(address(_user1), address(cUSDC), address(cUNI), address(UNI));
         AaveFlashLoan receiver = new AaveFlashLoan();
-        receiver.execute(liauidatedAmount, callbackData);
+        receiver.execute(liquidatedAmount, callbackData);
 
         // Check the profit
         console.log("user2 usdc balance: %s", USDC.balanceOf(address(_user2)));
